@@ -5,7 +5,7 @@
 ### Build
 
 ```
-docker build -t smile-cli:latest .
+docker build -t smile-cli:latest github.com/ngyewch/smile-cli
 ```
 
 ### Run decode
