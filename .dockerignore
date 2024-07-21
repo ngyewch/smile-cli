@@ -1,0 +1,12 @@
+.git/
+.gradle/
+.idea/
+build/
+.dockerignore
+.gitignore
+.mise.toml
+.mise-helper.toml
+LICENSE
+README.md
+Dockerfile
+Taskfile.yml

@@ -10,3 +10,16 @@ tasks:
     desc: Build
     cmds:
       - ./gradlew installDist
+
+  docker-build:
+    cmds:
+      - docker build -t smile-cli:latest .
+
+  docker-decode-test:
+    cmds:
+      - mkdir -p build/testdata
+      - docker run -it
+          --user $(id -u):$(id -g)
+          -v $(pwd)/../smile-js/testdata:/data/input
+          -v $(pwd)/build/testdata:/data/output
+          smile-cli:latest decode -r --wrapped --indented --copy-source /data/input/basic /data/output/basic
