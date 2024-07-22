@@ -1,20 +1,16 @@
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.File;
-import java.io.IOException;
 
-public class WrappedData {
-  private Object value;
+public class WrappedData<T> {
+  private T value;
   private boolean sharedStrings;
   private boolean sharedProperties;
   private boolean rawBinary;
 
-  public Object getValue() {
+  public T getValue() {
     return value;
   }
 
-  public void setValue(Object value) {
+  public void setValue(T value) {
     this.value = value;
   }
 
@@ -40,12 +36,6 @@ public class WrappedData {
 
   public void setRawBinary(boolean rawBinary) {
     this.rawBinary = rawBinary;
-  }
-
-  public static WrappedData fromFile(File inputFile) throws IOException {
-    final ObjectMapper objectMapper = new ObjectMapper();
-    objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
-    return objectMapper.readValue(inputFile, WrappedData.class);
   }
 
   @JsonIgnore
