@@ -67,15 +67,20 @@ public class Encode implements Callable<Integer> {
   private boolean copySource;
 
   @CommandLine.Option(
-      names = {"--parse-as"},
-      description = "Parse as")
-  private Map<String, String> parseAsMap;
+      names = {"--parse-files-as"},
+      description = "Parse files as")
+  private Map<String, String> parseFileAsMap;
+
+  @CommandLine.Option(
+      names = {"--parse-file-as"},
+      description = "Parse file as")
+  private String parseFileAs;
 
   @Override
   public Integer call() throws Exception {
     final Map<PathMatcher, String> matcherMap = new LinkedHashMap<>();
-    if (parseAsMap != null) {
-      for (final Map.Entry<String, String> entry : parseAsMap.entrySet()) {
+    if (parseFileAsMap != null) {
+      for (final Map.Entry<String, String> entry : parseFileAsMap.entrySet()) {
         final PathMatcher pathMatcher =
             FileSystems.getDefault().getPathMatcher("glob:" + entry.getKey());
         matcherMap.put(pathMatcher, entry.getValue());
@@ -93,7 +98,7 @@ public class Encode implements Callable<Integer> {
             final File jsonOutputFile = new File(outputPath, relativePath);
             final File smileOutputFile = Utils.replaceExtension(jsonOutputFile, ".smile");
             String parseAs = null;
-            if (parseAsMap != null) {
+            if (parseFileAsMap != null) {
               for (final Map.Entry<PathMatcher, String> entry : matcherMap.entrySet()) {
                 if (entry.getKey().matches(Path.of(relativePath))) {
                   parseAs = entry.getValue();
@@ -106,7 +111,7 @@ public class Encode implements Callable<Integer> {
             final File smileOutputFile = outputPath;
             final File jsonOutputFile =
                 Utils.replaceExtension(smileOutputFile, "." + jsonExtensions[0]);
-            encode(file, smileOutputFile, copySource ? jsonOutputFile : null, null);
+            encode(file, smileOutputFile, copySource ? jsonOutputFile : null, parseFileAs);
           }
         });
     return 0;
@@ -294,10 +299,14 @@ public class Encode implements Callable<Integer> {
     }
     final SmileOptions smileOptions = wrappedData.getSmileOptions();
     final ObjectMapper smileObjectMapper = SmileUtils.newObjectMapper(smileOptions);
-    smileOutputFile.getParentFile().mkdirs();
+    if (smileOutputFile.getParentFile() != null) {
+      smileOutputFile.getParentFile().mkdirs();
+    }
     smileObjectMapper.writeValue(smileOutputFile, wrappedData.getValue());
     if (jsonOutputFile != null) {
-      jsonOutputFile.getParentFile().mkdirs();
+      if (jsonOutputFile.getParentFile() != null) {
+        jsonOutputFile.getParentFile().mkdirs();
+      }
       if (optionsOverride) {
         final ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.configure(SerializationFeature.INDENT_OUTPUT, indented);
