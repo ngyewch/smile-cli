@@ -5,6 +5,11 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
+import java.nio.file.PathMatcher;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -61,8 +66,22 @@ public class Encode implements Callable<Integer> {
       description = "Copy source file to output directory")
   private boolean copySource;
 
+  @CommandLine.Option(
+      names = {"--parse-as"},
+      description = "Parse as")
+  private Map<String, String> parseAsMap;
+
   @Override
   public Integer call() throws Exception {
+    final Map<PathMatcher, String> matcherMap = new LinkedHashMap<>();
+    if (parseAsMap != null) {
+      for (final Map.Entry<String, String> entry : parseAsMap.entrySet()) {
+        final PathMatcher pathMatcher =
+            FileSystems.getDefault().getPathMatcher("glob:" + entry.getKey());
+        matcherMap.put(pathMatcher, entry.getValue());
+      }
+    }
+
     Utils.handleCommand(
         inputPath,
         outputPath,
@@ -73,12 +92,21 @@ public class Encode implements Callable<Integer> {
             final String relativePath = inputPath.toURI().relativize(file.toURI()).getPath();
             final File jsonOutputFile = new File(outputPath, relativePath);
             final File smileOutputFile = Utils.replaceExtension(jsonOutputFile, ".smile");
-            encode(file, smileOutputFile, copySource ? jsonOutputFile : null);
+            String parseAs = null;
+            if (parseAsMap != null) {
+              for (final Map.Entry<PathMatcher, String> entry : matcherMap.entrySet()) {
+                if (entry.getKey().matches(Path.of(relativePath))) {
+                  parseAs = entry.getValue();
+                  break;
+                }
+              }
+            }
+            encode(file, smileOutputFile, copySource ? jsonOutputFile : null, parseAs);
           } else {
             final File smileOutputFile = outputPath;
             final File jsonOutputFile =
                 Utils.replaceExtension(smileOutputFile, "." + jsonExtensions[0]);
-            encode(file, smileOutputFile, copySource ? jsonOutputFile : null);
+            encode(file, smileOutputFile, copySource ? jsonOutputFile : null, null);
           }
         });
     return 0;
@@ -230,30 +258,27 @@ public class Encode implements Callable<Integer> {
     }
   }
 
-  private void encode(File jsonInputFile, File smileOutputFile, File jsonOutputFile)
-      throws IOException {
-    final WrappedData wrappedData;
-    if (jsonInputFile.getParentFile().getName().equals("big_decimal")) {
-      wrappedData = readJsonFileAsBigDecimal(jsonInputFile);
-    } else if (jsonInputFile.getParentFile().getName().equals("big_integer")) {
-      wrappedData = readJsonFileAsBigInteger(jsonInputFile);
-    } else if (jsonInputFile.getParentFile().getName().equals("binary")) {
-      wrappedData = readJsonFileAsBinary(jsonInputFile);
-    } else if (jsonInputFile.getParentFile().getName().equals("boolean")) {
-      wrappedData = readJsonFileAsBoolean(jsonInputFile);
-    } else if (jsonInputFile.getParentFile().getName().equals("double")) {
-      wrappedData = readJsonFileAsDouble(jsonInputFile);
-    } else if (jsonInputFile.getParentFile().getName().equals("float")) {
-      wrappedData = readJsonFileAsFloat(jsonInputFile);
-    } else if (jsonInputFile.getParentFile().getName().equals("integer")) {
-      wrappedData = readJsonFileAsInteger(jsonInputFile);
-    } else if (jsonInputFile.getParentFile().getName().equals("long")) {
-      wrappedData = readJsonFileAsLong(jsonInputFile);
-    } else if (jsonInputFile.getParentFile().getName().equals("string")) {
-      wrappedData = readJsonFileAsString(jsonInputFile);
-    } else {
-      wrappedData = readJsonFile(jsonInputFile);
+  private WrappedData readJsonFile(File jsonInputFile, String parseAs) throws IOException {
+    if (parseAs == null) {
+      return readJsonFile(jsonInputFile);
     }
+    return switch (parseAs) {
+      case "big_decimal" -> readJsonFileAsBigDecimal(jsonInputFile);
+      case "big_integer" -> readJsonFileAsBigInteger(jsonInputFile);
+      case "binary" -> readJsonFileAsBinary(jsonInputFile);
+      case "boolean" -> readJsonFileAsBoolean(jsonInputFile);
+      case "double" -> readJsonFileAsDouble(jsonInputFile);
+      case "float" -> readJsonFileAsFloat(jsonInputFile);
+      case "integer" -> readJsonFileAsInteger(jsonInputFile);
+      case "long" -> readJsonFileAsLong(jsonInputFile);
+      case "string" -> readJsonFileAsString(jsonInputFile);
+      default -> throw new IllegalArgumentException("unknown parse-as type: " + parseAs);
+    };
+  }
+
+  private void encode(File jsonInputFile, File smileOutputFile, File jsonOutputFile, String parseAs)
+      throws IOException {
+    final WrappedData wrappedData = readJsonFile(jsonInputFile, parseAs);
     boolean optionsOverride = false;
     if (sharedProperties != null) {
       wrappedData.setSharedProperties(sharedProperties);
